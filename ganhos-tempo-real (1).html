@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ganhos em tempo real</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,500;1,9..144,400&family=IBM+Plex+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #0c1512;
+    --bg-2: #0f1a16;
+    --surface: rgba(242,239,230,0.03);
+    --line: rgba(242,239,230,0.09);
+    --gold: #c9a227;
+    --gold-soft: #e6c96b;
+    --teal: #3fa796;
+    --text: #f3efe4;
+    --text-muted: #869a90;
+    --text-faint: #566159;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{height:100%;}
+  body{
+    background:
+      radial-gradient(ellipse 80% 50% at 50% 0%, rgba(63,167,150,0.09), transparent 60%),
+      radial-gradient(ellipse 60% 40% at 50% 100%, rgba(201,162,39,0.06), transparent 60%),
+      var(--bg);
+    color: var(--text);
+    font-family: 'IBM Plex Mono', monospace;
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    overflow:hidden;
+    position:relative;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* signature background element: rising accumulation curve */
+  #curve-wrap{
+    position:fixed; inset:0; z-index:0; opacity:0.5;
+    -webkit-mask-image: linear-gradient(to bottom, transparent, black 30%, black 75%, transparent);
+    mask-image: linear-gradient(to bottom, transparent, black 30%, black 75%, transparent);
+  }
+  #curve-wrap svg{width:100%; height:100%;}
+  #curve-path{
+    fill:none;
+    stroke: var(--teal);
+    stroke-width:1;
+    stroke-opacity:0.35;
+  }
+  #curve-fill{
+    fill: url(#curveGradient);
+    opacity:0.5;
+  }
+  #pulse-dot{
+    fill: var(--gold-soft);
+    filter: drop-shadow(0 0 6px rgba(230,201,107,0.8));
+  }
+
+  main{
+    position:relative;
+    z-index:1;
+    width:100%;
+    max-width:920px;
+    padding: 32px 24px;
+    text-align:center;
+  }
+
+  .eyebrow{
+    font-family:'Fraunces', serif;
+    font-style:italic;
+    font-weight:400;
+    font-size: clamp(13px, 1.6vw, 16px);
+    letter-spacing: 0.28em;
+    text-transform:uppercase;
+    color: var(--text-muted);
+    margin-bottom: 28px;
+    opacity:0;
+    animation: rise 900ms ease forwards 100ms;
+  }
+
+  .amount-row{
+    display:flex;
+    align-items:baseline;
+    justify-content:center;
+    gap: 10px;
+    flex-wrap:wrap;
+    opacity:0;
+    animation: rise 900ms ease forwards 240ms;
+  }
+  .currency{
+    font-family:'Fraunces', serif;
+    font-weight:300;
+    font-size: clamp(22px, 3.2vw, 34px);
+    color: var(--gold-soft);
+    align-self:flex-start;
+    margin-top: 0.6em;
+  }
+  #amount{
+    font-family:'IBM Plex Mono', monospace;
+    font-weight:500;
+    font-size: clamp(40px, 9vw, 104px);
+    line-height:1;
+    letter-spacing:-0.01em;
+    font-variant-numeric: tabular-nums;
+    color: var(--text);
+    text-shadow: 0 0 40px rgba(63,167,150,0.15);
+  }
+  #amount .frac{
+    font-size:0.42em;
+    color: var(--teal);
+    font-weight:400;
+  }
+
+  .status-line{
+    margin-top:18px;
+    font-size: 12px;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    color: var(--text-faint);
+    opacity:0;
+    animation: rise 900ms ease forwards 360ms;
+  }
+  .status-line .live-dot{
+    display:inline-block;
+    width:6px; height:6px;
+    border-radius:50%;
+    background: var(--teal);
+    margin-right:8px;
+    box-shadow: 0 0 8px var(--teal);
+    animation: blink 1.6s ease-in-out infinite;
+  }
+
+  .progress{
+    margin: 46px auto 0;
+    max-width: 560px;
+    opacity:0;
+    animation: rise 900ms ease forwards 480ms;
+  }
+  .progress-track{
+    position:relative;
+    height:1px;
+    background: var(--line);
+    border-radius:1px;
+  }
+  .progress-fill{
+    position:absolute; top:0; left:0; height:1px;
+    background: linear-gradient(90deg, var(--teal), var(--gold));
+    border-radius:1px;
+    width:0%;
+    transition: width 400ms linear;
+  }
+  .progress-fill::after{
+    content:'';
+    position:absolute; right:-3px; top:50%;
+    width:7px; height:7px;
+    transform: translateY(-50%);
+    border-radius:50%;
+    background: var(--gold-soft);
+    box-shadow: 0 0 10px var(--gold-soft);
+  }
+  .progress-pct{
+    margin-top:10px;
+    font-size:11px;
+    color: var(--text-faint);
+    letter-spacing:0.08em;
+  }
+
+  .meta{
+    margin-top:56px;
+    display:flex;
+    justify-content:center;
+    gap: clamp(24px, 6vw, 72px);
+    flex-wrap:wrap;
+    opacity:0;
+    animation: rise 900ms ease forwards 600ms;
+  }
+  .meta-item{ text-align:center; min-width:120px; }
+  .meta-label{
+    font-size:10px;
+    letter-spacing:0.18em;
+    text-transform:uppercase;
+    color: var(--text-faint);
+    margin-bottom:8px;
+    font-family:'Fraunces', serif;
+    font-style:italic;
+  }
+  .meta-value{
+    font-size: 14px;
+    color: var(--text-muted);
+    font-weight:400;
+  }
+  .meta-value.strong{
+    color: var(--gold-soft);
+    font-weight:500;
+  }
+  .meta-divider{
+    width:1px;
+    background: var(--line);
+    align-self:stretch;
+  }
+
+  .error-box{
+    display:none;
+    max-width:480px;
+    margin: 0 auto;
+    padding: 22px 26px;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    border-radius: 4px;
+    text-align:left;
+  }
+  .error-box .error-title{
+    font-family:'Fraunces', serif;
+    font-style:italic;
+    color: var(--gold-soft);
+    font-size:15px;
+    margin-bottom:8px;
+  }
+  .error-box .error-body{
+    font-size:12px;
+    line-height:1.7;
+    color: var(--text-muted);
+  }
+  .error-box code{
+    color: var(--teal);
+    background: rgba(63,167,150,0.08);
+    padding:1px 5px;
+    border-radius:3px;
+  }
+
+  @keyframes rise{
+    from{ opacity:0; transform: translateY(10px); }
+    to{ opacity:1; transform: translateY(0); }
+  }
+  @keyframes blink{
+    0%,100%{ opacity:1; }
+    50%{ opacity:0.35; }
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .eyebrow, .amount-row, .status-line, .progress, .meta{ animation: none; opacity:1; }
+    .live-dot{ animation: none; }
+  }
+
+  @media (max-width:560px){
+    .meta{ gap: 22px 36px; }
+    .currency{ margin-top: 0.3em; }
+  }
+</style>
+</head>
+<body>
+
+<div id="curve-wrap">
+  <svg viewBox="0 0 1000 500" preserveAspectRatio="none">
+    <defs>
+      <linearGradient id="curveGradient" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#3fa796" stop-opacity="0.25"/>
+        <stop offset="100%" stop-color="#3fa796" stop-opacity="0"/>
+      </linearGradient>
+    </defs>
+    <path id="curve-fill" d=""></path>
+    <path id="curve-path" d=""></path>
+    <circle id="pulse-dot" cx="0" cy="0" r="3.4"></circle>
+  </svg>
+</div>
+
+<main>
+  <div class="eyebrow">Ganhos em tempo real</div>
+
+  <div class="amount-row" id="amount-row" style="display:none;">
+    <span class="currency">R$</span>
+    <span id="amount">0,00000000</span>
+  </div>
+
+  <div class="status-line" id="status-line" style="display:none;">
+    <span class="live-dot"></span><span id="status-text">acumulando agora</span>
+  </div>
+
+  <div class="progress" id="progress" style="display:none;">
+    <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
+    <div class="progress-pct" id="progress-pct">0% do período</div>
+  </div>
+
+  <div class="meta" id="meta" style="display:none;">
+    <div class="meta-item">
+      <div class="meta-label">Início</div>
+      <div class="meta-value" id="meta-start">—</div>
+    </div>
+    <div class="meta-divider"></div>
+    <div class="meta-item">
+      <div class="meta-label">Valor total do período</div>
+      <div class="meta-value strong" id="meta-total">—</div>
+    </div>
+    <div class="meta-divider"></div>
+    <div class="meta-item">
+      <div class="meta-label">Fim</div>
+      <div class="meta-value" id="meta-end">—</div>
+    </div>
+  </div>
+
+  <div class="error-box" id="error-box">
+    <div class="error-title">Não foi possível conectar à API</div>
+    <div class="error-body">
+      Verifique se o servidor local está rodando em <code>http://127.0.0.1:8000</code>
+      e se ele permite requisições CORS a partir desta página.
+    </div>
+  </div>
+</main>
+
+<script>
+  const API_URL = "https://work-motivator.vercel.app/";
+
+  function localIsoNow(){
+    const d = new Date();
+    const pad = n => String(n).padStart(2,'0');
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  }
+
+  function formatAmount(value){
+    // full, unrounded precision, Brazilian grouping, split for styling the fraction
+    const negative = value < 0;
+    const abs = Math.abs(value);
+    const str = abs.toFixed(10); // ample fractional resolution for the "falling coins" effect
+    let [intPart, fracPart] = str.split('.');
+    intPart = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    return { html: `${negative ? '-' : ''}${intPart}<span class="frac">,${fracPart}</span>` };
+  }
+
+  function formatDate(dateStr){
+    const d = new Date(dateStr);
+    return new Intl.DateTimeFormat('pt-BR', { day:'2-digit', month:'long', year:'numeric' }).format(d);
+  }
+
+  function formatCurrencyBRL(value){
+    return new Intl.NumberFormat('pt-BR', { style:'currency', currency:'BRL' }).format(value);
+  }
+
+  function drawCurve(progressFraction){
+    const w = 1000, h = 500;
+    const pts = [];
+    const n = 60;
+    for(let i=0;i<=n;i++){
+      const x = (i/n) * w;
+      // gentle compound-style ease curve
+      const t = i/n;
+      const y = h - Math.pow(t, 1.6) * (h*0.62) - 30;
+      pts.push([x,y]);
+    }
+    const linePath = pts.map((p,i)=> (i===0? 'M':'L') + p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' ');
+    const fillPath = linePath + ` L${w},${h} L0,${h} Z`;
+    document.getElementById('curve-path').setAttribute('d', linePath);
+    document.getElementById('curve-fill').setAttribute('d', fillPath);
+
+    const clamped = Math.min(Math.max(progressFraction,0),1);
+    const idx = Math.min(n, Math.round(clamped*n));
+    const dot = pts[idx];
+    const dotEl = document.getElementById('pulse-dot');
+    dotEl.setAttribute('cx', dot[0]);
+    dotEl.setAttribute('cy', dot[1]);
+  }
+
+  async function init(){
+    let data;
+    try{
+      const res = await fetch(`${API_URL}?date_now=${encodeURIComponent(localIsoNow())}`, {
+        method: 'POST'
+      });
+      if(!res.ok) throw new Error('bad response');
+      data = await res.json();
+    }catch(err){
+      document.getElementById('error-box').style.display = 'block';
+      return;
+    }
+
+    const start = new Date(data.START_DATE);
+    const end = new Date(data.END_DATE);
+    const totalValue = data.TOTAL_VALUE;
+    const initialAccumulated = data.ACCUMULATED_VALUE;
+
+    const totalSeconds = (end - start) / 1000;
+    const ratePerMs = totalValue / totalSeconds / 1000;
+    const fetchedAtPerf = performance.now();
+
+    document.getElementById('amount-row').style.display = 'flex';
+    document.getElementById('status-line').style.display = 'block';
+    document.getElementById('progress').style.display = 'block';
+    document.getElementById('meta').style.display = 'flex';
+
+    document.getElementById('meta-start').textContent = formatDate(data.START_DATE);
+    document.getElementById('meta-end').textContent = formatDate(data.END_DATE);
+    document.getElementById('meta-total').textContent = formatCurrencyBRL(totalValue);
+
+    const amountEl = document.getElementById('amount');
+    const progressFillEl = document.getElementById('progress-fill');
+    const progressPctEl = document.getElementById('progress-pct');
+
+    function tick(){
+      const elapsedMs = performance.now() - fetchedAtPerf;
+      const currentValue = initialAccumulated + ratePerMs * elapsedMs;
+
+      amountEl.innerHTML = formatAmount(currentValue).html;
+
+      const elapsedSinceStartMs = (Date.now() - start.getTime());
+      const fraction = elapsedSinceStartMs / (totalSeconds*1000);
+      const pct = Math.min(Math.max(fraction*100, 0), 100);
+
+      progressFillEl.style.width = pct.toFixed(4) + '%';
+      progressPctEl.textContent = pct.toFixed(2).replace('.', ',') + '% do período decorrido';
+
+      drawCurve(fraction);
+
+      requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+  }
+
+  init();
+</script>
+</body>
+</html>
