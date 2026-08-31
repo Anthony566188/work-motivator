@@ -14,8 +14,8 @@ class Main(BaseModel):
 
 
 START_DATE = datetime(2026, 8, 24, 0, 0, 0)
-END_DATE = datetime(2026, 9, 24, 0, 0, 0)
-TOTAL_VALUE = 2300.00
+END_DATE = datetime(2026, 9, 9, 0, 0, 0)
+TOTAL_VALUE = 613.33
 
 
 def calculate_total_time() -> int:
